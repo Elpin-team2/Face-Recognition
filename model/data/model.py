@@ -164,3 +164,34 @@ class Inception(nn.Module):
         return torch.cat(outputs, 1)
 
 
+class InceptionAux(nn.Module):
+
+    def __init__(
+        self,
+        in_channels: int,
+        emb_dim: int,
+    ) -> None:
+        super(InceptionAux, self).__init__()
+        conv_block = BasicConv2d
+        self.conv = conv_block(in_channels, 128, kernel_size=1)
+
+        self.fc1 = nn.Linear(2048, 1024)
+        self.fc2 = nn.Linear(1024, emb_dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        # aux1: N x 512 x 14 x 14, aux2: N x 528 x 14 x 14
+        x = F.adaptive_avg_pool2d(x, (4, 4))
+        # aux1: N x 512 x 4 x 4, aux2: N x 528 x 4 x 4
+        x = self.conv(x)
+        # N x 128 x 4 x 4
+        x = torch.flatten(x, 1)
+        # N x 2048
+        x = F.relu(self.fc1(x), inplace=True)
+        # N x 1024
+        x = F.dropout(x, 0.7, training=self.training)
+        # N x 1024
+        x = self.fc2(x)
+        # N x 1000 (emb_dim)
+
+        return x
+
